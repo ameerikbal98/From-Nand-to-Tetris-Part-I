@@ -1,0 +1,85 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/5/CPU.hdl
+/**
+ * The Hack Central Processing unit (CPU).
+ * Parses the binary code in the instruction input and executes it according to the
+ * Hack machine language specification. In the case of a C-instruction, computes the
+ * function specified by the instruction. If the instruction specifies to read a memory
+ * value, the inM input is expected to contain this value. If the instruction specifies
+ * to write a value to the memory, sets the outM output to this value, sets the addressM
+ * output to the target address, and asserts the writeM output (when writeM = 0, any
+ * value may appear in outM).
+ * If the reset input is 0, computes the address of the next instruction and sets the
+ * pc output to that value. If the reset input is 1, sets pc to 0.
+ * Note: The outM and writeM outputs are combinational: they are affected by the
+ * instruction's execution during the current cycle. The addressM and pc outputs are
+ * clocked: although they are affected by the instruction's execution, they commit to
+ * their new values only in the next cycle.
+ */
+CHIP CPU {
+
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to re-start the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // address of next instruction
+
+    PARTS:
+	//// Replace this comment with your code.
+    And16(a=instruction,b=true,out[15]=selc);
+    DMux(in=true,sel=selc,a=aload,b=cload);
+    And16(a=instruction,b[0..15]=true,out[5]=lonALU);
+    And(a=lonALU,b=cload,out=tcload);
+    //need to change true to the ALU output
+    Mux16(a=ALUout,b=instruction,sel=aload,out=AregIN);
+    Xor(a=aload,b=tcload,out=taload);
+    Register(in=AregIN,load=taload,out=AregOut);
+    And16(a=instruction,b=true,out[12]=MorA);
+    And(a=cload,b=MorA,out=TMorA);
+
+    Mux16(a=AregOut,b=inM,sel=TMorA,out=ALUinAorM);
+
+    And16(a=instruction,b[0..15]=true,out[4]=Dload);
+    And(a=selc,b=Dload,out=TDload);
+    DRegister(in=ALUout,load=TDload,out=DregOut);
+
+
+    And16(a=instruction,b=true,out[11]=zx);
+    And16(a=instruction,b=true,out[10]=nx);
+    And16(a=instruction,b=true,out[9]=zy);
+    And16(a=instruction,b=true,out[8]=ny);
+    And16(a=instruction,b=true,out[7]=f);
+    And16(a=instruction,b=true,out[6]=no);
+    
+
+    ALU(x=DregOut,y=ALUinAorM,zx=zx,nx=nx,zy=zy,ny=ny,f=f,no=no,out=ALUout,zr=zr,ng=ng);
+    And16(a=instruction,b=true,out[1]=jz);
+    And16(a=instruction,b=true,out[0]=jp);
+    And16(a=instruction,b=true,out[2]=jn);
+    And(a=zr,b=jz,out=jzero);
+    And(a=ng,b=jn,out=jneg);
+    Not(in=zr,out=nzr);
+    Not(in=ng,out=nng);
+    And(a=nzr,b=nng,out=np);
+    And(a=np,b=jp,out=jpos);
+    Or(a=jzero,b=jneg,out=jtemp);
+    Or(a=jtemp,b=jpos,out=jmpcon);
+    And(a=jmpcon,b=selc,out=Tjmpcon);
+    Not(in=Tjmpcon,out=inco);
+    PC(in=AregOut,load=Tjmpcon,inc=inco,reset=reset,out=pcout);
+
+    And16(a=ALUout,b=true,out=outM);
+    And16(a=instruction,b=true,out[3]=writeMtemp);
+    And(a=selc,b=writeMtemp,out=writeM);
+    And16(a=AregOut,b=true,out[0..14]=addressM);
+    And16(a=pcout,b=true,out[0..14]=pc);
+    
+
+}

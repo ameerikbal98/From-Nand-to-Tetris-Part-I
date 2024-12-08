@@ -1,0 +1,72 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/5/Memory.hdl
+/**
+ * The complete address space of the Hack computer's memory,
+ * including RAM and memory-mapped I/O. 
+ * The chip facilitates read and write operations, as follows:
+ *     Read:  out(t) = Memory[address(t)](t)
+ *     Write: if load(t-1) then Memory[address(t-1)](t) = in(t-1)
+ * In words: the chip always outputs the value stored at the memory 
+ * location specified by address. If load=1, the in value is loaded 
+ * into the memory location specified by address. This value becomes 
+ * available through the out output from the next time step onward.
+ * Address space rules:
+ * Only the upper 16K+8K+1 words of the Memory chip are used. 
+ * Access to address>0x6000 is invalid and reads 0. Access to any address
+ * in the range 0x4000-0x5FFF results in accessing the screen memory 
+ * map. Access to address 0x6000 results in accessing the keyboard 
+ * memory map. The behavior in these addresses is described in the Screen
+ * and Keyboard chip specifications given in the lectures and the book.
+ */
+CHIP Memory {
+    IN in[16], load, address[15];
+    OUT out[16];
+
+    PARTS:
+	//// Replace this comment with your code.
+    And16(a[0..14]=address,b=true,out[14]=rsel1,out[13]=rsel2,out[12]=rsel3,out[0..13]=add16k,out[0..11]=add8k,out[0]=addkbd,out[0..7]=t1,out[4..11]=t2);
+    Not(in=rsel1,out=Nrsel1);
+    Not(in=rsel2,out=Nrsel2);
+    Not(in=rsel3,out=Nrsel3);
+    And(a=rsel1,b=Nrsel2,out=tmp1);
+    And(a=tmp1,b=Nrsel3,out=tmp2);
+
+    And(a=rsel1,b=rsel2,out=tmp3);
+    And(a=tmp3,b=Nrsel3,out=tmp4);
+    Or(a=tmp4,b=tmp2,out=sel2);
+
+    And(a=tmp1,b=rsel3,out=tmp5);
+    Or(a=tmp4,b=tmp5,out=sel1);
+
+    DMux4Way(in=true,sel[0]=sel2,sel[1]=sel1,a=load16k,b=load8k1,c=load8k2,d=loadkbd);
+
+    And(a=load,b=load16k,out=Tload16k);
+    And(a=load,b=load8k1,out=Tload8k1);
+    And(a=load,b=load8k2,out=Tload8k2);
+    And(a=load,b=loadkbd,out=Tloadkbd);
+
+    Or8Way(in=t1,out=k1);
+    Or8Way(in=t2,out=k2);
+    Not(in=k1,out=Nk1);
+    Not(in=k2,out=Nk2);
+    And(a=Nk1,b=Nk2,out=tk);
+
+    And(a=Tloadkbd,b=tk,out=TTloadkbd);
+
+    RAM16K(in=in,load=Tload16k,address=add16k,out=out16k);
+    RAM4K(in=in,load=Tload8k1,address=add8k,out=out8k1);
+    RAM4K(in=in,load=Tload8k2,address=add8k,out=out8k2);
+    Register(in=in,load=TTloadkbd,out=outkbd);
+
+
+
+    Mux4Way16(a=out16k,b=out8k1,c=out8k2,d=outkbd,sel[0]=sel2,sel[1]=sel1,out=out);
+
+
+    
+        
+
+
+}
